@@ -31,8 +31,9 @@ Add the downloaded directory to the load path:
   :bind (:map minibuffer-local-completion-map
               ("C-v" . minibuffer-auto-scroll-completions-up)
               ("M-v" . minibuffer-auto-scroll-completions-down)
-              ("M->" . minibuffer-auto-beg-of-buffer)
-              ("M-<" . minibuffer-auto-end-of-buffer)))
+              ("M->" . minibuffer-auto-end-of-buffer)
+              ("M-<" . minibuffer-auto-beg-of-buffer)))
+
 #+end_src
 
 ** Minor mode
