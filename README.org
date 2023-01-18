@@ -1,0 +1,51 @@
+* minibuffer-auto
+
+Enhancer For Default Minibuffer Completions.
+
+** Installation
+
+Emacs >= 25.1 is required.
+
+*** Manual
+
+Download the source code and put it wherever you like, e.g. into =~/.emacs.d/minibuffer-auto/=
+
+#+begin_src shell :eval no
+git clone https://github.com/KarimAziev/minibuffer-auto.git ~/.emacs.d/minibuffer-auto/
+#+end_src
+
+Add the downloaded directory to the load path:
+
+#+begin_src elisp :eval no
+(add-to-list 'load-path "~/.emacs.d/minibuffer-auto/")
+(require 'minibuffer-auto)
+#+end_src
+
+#+begin_src elisp :eval no
+(use-package minibuffer-auto
+  :straight (minibuffer-auto
+             :repo "KarimAziev/minibuffer-auto"
+             :type git
+             :host github)
+  :commands (minibuffer-auto-mode)
+  :bind (:map minibuffer-local-completion-map
+              ("C-v" . minibuffer-auto-scroll-completions-up)
+              ("M-v" . minibuffer-auto-scroll-completions-down)
+              ("M->" . minibuffer-auto-beg-of-buffer)
+              ("M-<" . minibuffer-auto-end-of-buffer)))
+#+end_src
+
+** Minor mode
+
+*** ~minibuffer-auto-mode~
+Autoexpand minibuffer completions.
+** Commands
+
+*** ~minibuffer-auto-end-of-buffer~
+Scroll completions window down without selection.
+*** ~minibuffer-auto-beg-of-buffer~
+Scroll completions window down without selection.
+*** ~minibuffer-auto-scroll-completions-down~
+Scroll completions window up without selection.
+*** ~minibuffer-auto-scroll-completions-up~
+Scroll completions window up without selection.
