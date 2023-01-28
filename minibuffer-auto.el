@@ -127,18 +127,26 @@ Triggers complete on the beginning and after inserting `crm-separator'."
     (apply oldfun args)))
 
 ;;;###autoload
+(define-minor-mode minibuffer-auto-crm-mode
+  "Autotrigger minibuffer completions for `completing-read-multiple'."
+  :lighter " crm-auto"
+  :group 'minibuffer
+  :global t
+  (advice-remove 'completing-read-multiple
+                 #'minibuffer-auto-crm-completing-read-multiple)
+  (when minibuffer-auto-crm-mode
+    (advice-add 'completing-read-multiple :around
+                #'minibuffer-auto-crm-completing-read-multiple)))
+
+;;;###autoload
 (define-minor-mode minibuffer-auto-mode
   "Autoexpand minibuffer completions."
   :lighter " mini-auto"
   :group 'minibuffer
   :global t
   (remove-hook 'minibuffer-setup-hook #'minibuffer-auto-setup-hook)
-  (advice-remove 'completing-read-multiple
-                 #'minibuffer-auto-crm-completing-read-multiple)
   (when minibuffer-auto-mode
-    (add-hook 'minibuffer-setup-hook #'minibuffer-auto-setup-hook)
-    (advice-add 'completing-read-multiple :around
-                #'minibuffer-auto-crm-completing-read-multiple)))
+    (add-hook 'minibuffer-setup-hook #'minibuffer-auto-setup-hook)))
 
 (provide 'minibuffer-auto)
 ;;; minibuffer-auto.el ends here
