@@ -27,19 +27,23 @@ Add the downloaded directory to the load path:
              :repo "KarimAziev/minibuffer-auto"
              :type git
              :host github)
-  :commands (minibuffer-auto-mode)
+  :commands (minibuffer-auto-mode minibuffer-auto-crm-mode
+                                  minibuffer-auto-preview-mode)
   :bind (:map minibuffer-local-completion-map
               ("C-v" . minibuffer-auto-scroll-completions-up)
               ("M-v" . minibuffer-auto-scroll-completions-down)
               ("M->" . minibuffer-auto-end-of-buffer)
               ("M-<" . minibuffer-auto-beg-of-buffer)))
-
 #+end_src
 
 ** Minor mode
 
-*** ~minibuffer-auto-mode~
+-  ~minibuffer-auto-preview-mode~
+Enhance minibuffer map with preview commands.
+-  ~minibuffer-auto-mode~
 Autoexpand minibuffer completions.
+-  ~minibuffer-auto-crm-mode~
+Autotrigger minibuffer completions for =completing-read-multiple=.
 ** Commands
 
 *** ~minibuffer-auto-end-of-buffer~

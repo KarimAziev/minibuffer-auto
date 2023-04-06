@@ -76,13 +76,11 @@
                            (- (/ completions-max-height 2)))))))
            (minibuffer-next-completion direction)))))
 
-
 ;;;###autoload
 (defun minibuffer-auto-scroll-completions-up ()
   "Scroll completions window up without selection."
   (interactive)
   (minibuffer-auto-scroll 1))
-
 
 ;;;###autoload
 (defun minibuffer-auto-scroll-completions-down ()
@@ -111,7 +109,6 @@
     (minibuffer-next-completion -1)))
 
 (defvar minibuffer-auto-timer nil)
-
 
 (defun minibuffer-auto-cleanup-hook ()
   "Cancel `minibuffer-auto-timer' and remove minibuffer hooks."
@@ -146,8 +143,32 @@
 (defvar minibuffer-auto-def nil)
 
 ;;;###autoload
+(defun minibuffer-auto-up-to-git-or-home-dir ()
+  "Go to the parent directory until .git or home directory reached."
+  (interactive)
+  (when (minibuffer-window-active-p (selected-window))
+    (let ((dir (buffer-substring-no-properties (minibuffer-prompt-end)
+                                               (line-end-position))))
+      (when (or (not (file-exists-p dir))
+                (not (file-directory-p dir)))
+        (minibuffer-auto-directory-up)
+        (setq dir (buffer-substring-no-properties (minibuffer-prompt-end)
+                                                  (line-end-position))))
+      (let ((initial-dir dir))
+        (while (and (file-exists-p dir)
+                    (file-directory-p dir)
+                    (not (file-equal-p dir "~/"))
+                    (or
+                     (file-equal-p dir initial-dir)
+                     (not (file-exists-p (expand-file-name ".git" dir)))))
+          (minibuffer-auto-directory-up)
+          (setq dir (buffer-substring-no-properties (minibuffer-prompt-end)
+                                                    (line-end-position)))))
+      (minibuffer-auto-complete))))
+
+;;;###autoload
 (defun minibuffer-auto-directory-up ()
-  "Invoke `minibuffer-auto-complete' with timer."
+  "Go to the parent directory preselecting the current one."
   (interactive)
   (when (minibuffer-window-active-p (selected-window))
     (if-let ((beg (save-excursion
@@ -171,10 +192,6 @@
                (minibuffer-auto-complete))
       (delete-region (minibuffer-prompt-end)
                      (line-end-position)))))
-
-(define-key minibuffer-local-filename-completion-map (kbd "C-l")
-            'minibuffer-auto-directory-up)
-
 
 (defun minibuffer-auto-post-command-hook (&rest _)
   "Invoke `minibuffer-auto-complete' with timer."
@@ -219,13 +236,13 @@ Triggers complete on the beginning and after inserting `crm-separator'."
           (crm-complete)))
     (apply oldfun args)))
 
-
 (defvar minibuffer-auto-exit-actions `((file
                                       find-file-other-window find-file)
                                      (buffer switch-to-buffer-other-window
                                              switch-to-buffer)
                                      (bookmark bookmark-jump-other-window
                                                bookmark-jump)))
+
 (defun minibuffer-auto--metadata ()
   "Return current minibuffer completion metadata."
   (completion-metadata
@@ -317,7 +334,6 @@ their own target finder.  See for example
          (setcar target 'variable))
         ('imenu (setcar target 'imenu)))
       target)))
-
 
 (defun minibuffer-auto-file-preview (current)
   "Preview CURRENT as file."
@@ -447,7 +463,6 @@ If OTHER-WIND do it in other window."
                (abort-minibuffers))
       (minibuffer-auto-symbol-action current other-wind))))
 
-
 (defun minibuffer-auto-try-find-symbol (current)
   "Try to find symbol definition for CURRENT minibuffer completion."
   (when-let* ((symb (read current))
@@ -518,13 +533,11 @@ If OTHER-WIND do it in other window."
           (funcall minibuffer-auto-default-action)
           t))))))
 
-
 ;;;###autoload
 (defun minibuffer-auto-find-dwim-other-window ()
   "Try to find file or symbol definition and exit minibuffer."
   (interactive)
   (minibuffer-auto-find-and-exit t))
-
 
 ;;;###autoload
 (defun minibuffer-auto-find-dwim ()
@@ -578,7 +591,6 @@ Default value of SEPARATOR is space."
     (progn (run-with-timer 0.1 nil action current)
            (abort-minibuffers))))
 
-
 ;;;###autoload
 (defun minibuffer-auto-copy-current ()
   "Copy current minibuffer candidate without exiting minibuffer."
@@ -596,15 +608,15 @@ Default value of SEPARATOR is space."
 
 (defvar minibuffer-auto-extra-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-j")
-                #'minibuffer-auto-preview-command)
     (define-key map (kbd "C-c C-j")
                 #'minibuffer-auto-find-dwim)
     (define-key map (kbd "C-c C-o")
                 #'minibuffer-auto-find-dwim-other-window)
+    (define-key map (kbd "C-M-l") #'minibuffer-auto-up-to-git-or-home-dir)
     (define-key map (kbd "C-c C-i") #'minibuffer-auto-insert)
     (define-key map (kbd "M-w") #'minibuffer-auto-copy-current)
     map))
+
 (defvar-local minibuffer-auto-last-input nil)
 (defun minibuffer-auto-pre-command-preview-hook ()
   "Try to find file or symbol definition and exit minibuffer."
@@ -612,58 +624,63 @@ Default value of SEPARATOR is space."
                t)
   (when (memq this-command '(icomplete-forward-completions
                              icomplete-backward-completions))
-    (delete-region (minibuffer-prompt-end)
-                   (line-end-position))
-    (insert minibuffer-auto-last-input)))
+    (minibuffer-auto-directory-up)))
 
 (defun minibuffer-auto-remove-preview-buffer ()
   "Remove buffer `minibuffer-auto-preview-buffer-name'."
   (when (buffer-live-p (get-buffer minibuffer-auto-preview-buffer-name))
     (kill-buffer (get-buffer minibuffer-auto-preview-buffer-name))))
 
-(defun minibuffer-auto--minibuffer-setup ()
+(defun minibuffer-auto--minibuffer-setup-local-map ()
   "Hook function for `icomplete-minibuffer-setup-hook'."
-  (use-local-map (make-composed-keymap minibuffer-auto-extra-map
-                                       (current-local-map))))
+  (use-local-map
+   (make-composed-keymap (current-local-map)
+                         minibuffer-auto-extra-map)))
 
-(defun minibuffer-auto-setup-preview-map ()
-  "Setup local keymap."
+(defvar-local minibuffer-auto-preview-candidate nil)
+(defvar minibuffer-auto-preview-timer nil)
+(defun minibuffer-auto-do-preview ()
+  "Try to preview current minibuffer candidate."
   (when (minibufferp)
-    (setq minibuffer-auto-default-action (key-binding (kbd "C-j")))
+    (let ((cand (minibuffer-auto-get-current-candidate))
+          (curr minibuffer-auto-preview-candidate))
+      (when (not (equal cand curr))
+        (setq minibuffer-auto-preview-candidate cand)
+        (when-let ((current (cdr cand)))
+          (when (and (file-exists-p current)
+                     (not (file-directory-p current)))
+            (when (minibuffer-auto-fido-mode-p)
+              (add-hook 'pre-command-hook
+                        'minibuffer-auto-pre-command-preview-hook nil t)))
+          (minibuffer-auto-action current (car cand)))))))
+
+(defun minibuffer-auto-schedule-preview ()
+  "Run preview command after timeout."
+  (setq minibuffer-auto-last-input
+        (buffer-substring-no-properties
+         (minibuffer-prompt-end)
+         (line-end-position)))
+  (when (timerp minibuffer-auto-preview-timer)
+    (cancel-timer minibuffer-auto-preview-timer))
+  (setq minibuffer-auto-preview-timer
+        (run-with-timer 0.5 nil
+                        'minibuffer-auto-do-preview)))
+
+(defun minibuffer-auto-setup-preview ()
+  "Setup auto preview."
+  (when (minibufferp)
     (setq minibuffer-auto-command this-command)
+    (minibuffer-auto--minibuffer-setup-local-map)
     (when (bound-and-true-p icomplete-mode)
       (add-hook 'icomplete-minibuffer-setup-hook
-                #'minibuffer-auto--minibuffer-setup))
+                #'minibuffer-auto--minibuffer-setup-local-map))
     (when (bound-and-true-p icomplete-vertical-mode)
       (add-hook 'icomplete--vertical-minibuffer-setup
-                #'minibuffer-auto--minibuffer-setup))
+                #'minibuffer-auto--minibuffer-setup-local-map))
+    (add-hook 'pre-command-hook 'minibuffer-auto-schedule-preview nil t)
     (use-local-map
      (make-composed-keymap (current-local-map)
                            minibuffer-auto-extra-map))))
-
-
-;;;###autoload
-(defun minibuffer-auto-preview-command ()
-  "Execute preview command in minibuffer."
-  (interactive)
-  (let ((input (buffer-substring-no-properties (minibuffer-prompt-end)
-                                               (line-end-position)))
-        (cell (minibuffer-auto-get-current-candidate)))
-    (when (and
-           (file-exists-p (cdr cell))
-           (file-directory-p (cdr cell))
-           (minibuffer-auto-fido-mode-p)
-           (fboundp 'icomplete-force-complete))
-      (icomplete-force-complete))
-    (pcase-let ((`(,category . ,current)
-                 (minibuffer-auto-get-current-candidate)))
-      (setq minibuffer-auto-last-input input)
-      (when (and (file-exists-p current)
-                 (not (file-directory-p current)))
-        (when (minibuffer-auto-fido-mode-p)
-          (add-hook 'pre-command-hook 'minibuffer-auto-pre-command-preview-hook nil t)))
-      (minibuffer-auto-action current category))))
-
 
 ;;;###autoload
 (define-minor-mode minibuffer-auto-crm-mode
@@ -687,16 +704,20 @@ Default value of SEPARATOR is space."
   (when minibuffer-auto-mode
     (add-hook 'minibuffer-setup-hook #'minibuffer-auto-setup-hook)))
 
-
 ;;;###autoload
-(define-minor-mode minibuffer-auto-extra-map-mode
-  "Autoexpand minibuffer completions."
+(define-minor-mode minibuffer-auto-preview-mode
+  "Enhance minibuffer map with preview commands."
   :lighter " mini-auto"
   :group 'minibuffer
   :global t
-  (remove-hook 'minibuffer-setup-hook 'minibuffer-auto-setup-preview-map)
-  (when minibuffer-auto-extra-map-mode
-    (add-hook 'minibuffer-setup-hook 'minibuffer-auto-setup-preview-map)))
+  (remove-hook 'minibuffer-setup-hook 'minibuffer-auto-setup-preview)
+  (remove-hook 'icomplete-minibuffer-setup-hook
+               #'minibuffer-auto--minibuffer-setup-local-map)
+  (remove-hook 'icomplete-minibuffer-setup-hook
+               #'minibuffer-auto--minibuffer-setup-local-map)
+  (when minibuffer-auto-preview-mode
+    (add-hook 'minibuffer-setup-hook 'minibuffer-auto-setup-preview)
+    (add-hook 'minibuffer-exit-hook #'minibuffer-auto-cleanup-hook)))
 
 (provide 'minibuffer-auto)
 ;;; minibuffer-auto.el ends here
