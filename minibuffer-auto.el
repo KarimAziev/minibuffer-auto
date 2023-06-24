@@ -7,6 +7,7 @@
 ;; Version: 0.1.0
 ;; Keywords: tools
 ;; Package-Requires: ((emacs "28.1"))
+;; SPDX-License-Identifier: GPL-3.0-or-later
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -207,7 +208,7 @@
                 backward-kill-word))
     (setq minibuffer-auto-timer
           (run-with-timer 0.5 nil
-                          'minibuffer-auto-complete))))
+                          #'minibuffer-auto-complete))))
 
 (defun minibuffer-auto-setup-hook ()
   "Setup minibuffer completions."
@@ -440,7 +441,7 @@ If OTHER-WIND do it in other window."
                             (list (ignore-errors (symbol-file symb))))))
               (found (car-safe result)))
     (run-with-timer 0.1 nil
-                    'minibuffer-auto-jump-to-symbol
+                    #'minibuffer-auto-jump-to-symbol
                     other-wind found)
     (abort-minibuffers)))
 
@@ -478,6 +479,13 @@ If OTHER-WIND do it in other window."
                             (list (ignore-errors (symbol-file symb))))))
               (found (car-safe result)))
     found))
+
+(defun minibuffer-auto-preview-dwim ()
+  "Scroll completions window up without selection."
+  (interactive)
+  (pcase-let ((`(,category . ,current)
+               (minibuffer-auto-get-current-candidate)))
+    (minibuffer-auto-action current category)))
 
 (defun minibuffer-auto-action (current &optional category)
   "Apply preview action on minibuffer CURRENT completion with CATEGORY."
@@ -521,6 +529,11 @@ If OTHER-WIND do it in other window."
          (minibuffer-auto-with-selected-window
           'display-buffer
           (get-buffer current))))
+      ('command
+       (with-minibuffer-selected-window
+         (describe-command
+          (intern-soft
+           current))))
       (_
        (or
         (when-let ((result (minibuffer-auto-try-find-symbol current)))
@@ -552,6 +565,8 @@ If OTHER-WIND do it in other window."
       (bound-and-true-p fido-vertical-mode)))
 
 
+
+
 (defun minibuffer-auto-insert-action (item &optional separator)
   "Insert or complete ITEM and SEPARATOR.
 If word at point is prefix of ITEM, complete it, else insert ITEM.
@@ -567,7 +582,7 @@ Default value of SEPARATOR is space."
                                       (concat
                                        "A-Za-z0-9"
                                        (mapconcat
-                                        'regexp-quote
+                                        #'regexp-quote
                                         (delete-dups (split-string
                                                       (replace-regexp-in-string
                                                        "[A-Za-z0-9]"
@@ -601,6 +616,8 @@ Default value of SEPARATOR is space."
       (kill-new current)
       (message "Copied %s" current))))
 
+
+;;;###autoload
 (defun minibuffer-auto-insert ()
   "Call ACTION with current candidate and exit minibuffer."
   (interactive)
@@ -610,6 +627,8 @@ Default value of SEPARATOR is space."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-j")
                 #'minibuffer-auto-find-dwim)
+    (define-key map (kbd "C-j")
+                #'minibuffer-auto-preview-dwim)
     (define-key map (kbd "C-c C-o")
                 #'minibuffer-auto-find-dwim-other-window)
     (define-key map (kbd "C-M-l") #'minibuffer-auto-up-to-git-or-home-dir)
@@ -620,11 +639,14 @@ Default value of SEPARATOR is space."
 (defvar-local minibuffer-auto-last-input nil)
 (defun minibuffer-auto-pre-command-preview-hook ()
   "Try to find file or symbol definition and exit minibuffer."
-  (remove-hook 'pre-command-hook 'minibuffer-auto-pre-command-preview-hook
+  (remove-hook 'pre-command-hook #'minibuffer-auto-pre-command-preview-hook
                t)
   (when (memq this-command '(icomplete-forward-completions
                              icomplete-backward-completions))
-    (minibuffer-auto-directory-up)))
+    (when-let ((current (cdr (minibuffer-auto-get-current-candidate))))
+      (when (and (file-exists-p current)
+                 (not (file-directory-p current)))
+        (minibuffer-auto-directory-up)))))
 
 (defun minibuffer-auto-remove-preview-buffer ()
   "Remove buffer `minibuffer-auto-preview-buffer-name'."
@@ -651,7 +673,7 @@ Default value of SEPARATOR is space."
                      (not (file-directory-p current)))
             (when (minibuffer-auto-fido-mode-p)
               (add-hook 'pre-command-hook
-                        'minibuffer-auto-pre-command-preview-hook nil t)))
+                        #'minibuffer-auto-pre-command-preview-hook nil t)))
           (minibuffer-auto-action current (car cand)))))))
 
 (defun minibuffer-auto-schedule-preview ()
@@ -664,12 +686,13 @@ Default value of SEPARATOR is space."
     (cancel-timer minibuffer-auto-preview-timer))
   (setq minibuffer-auto-preview-timer
         (run-with-timer 0.5 nil
-                        'minibuffer-auto-do-preview)))
+                        #'minibuffer-auto-do-preview)))
 
 (defun minibuffer-auto-setup-preview ()
   "Setup auto preview."
   (when (minibufferp)
     (setq minibuffer-auto-command this-command)
+    (setq minibuffer-auto-default-action (key-binding (kbd "C-j") nil t))
     (minibuffer-auto--minibuffer-setup-local-map)
     (when (bound-and-true-p icomplete-mode)
       (add-hook 'icomplete-minibuffer-setup-hook
@@ -677,7 +700,7 @@ Default value of SEPARATOR is space."
     (when (bound-and-true-p icomplete-vertical-mode)
       (add-hook 'icomplete--vertical-minibuffer-setup
                 #'minibuffer-auto--minibuffer-setup-local-map))
-    (add-hook 'pre-command-hook 'minibuffer-auto-schedule-preview nil t)
+    (add-hook 'pre-command-hook #'minibuffer-auto-schedule-preview nil t)
     (use-local-map
      (make-composed-keymap (current-local-map)
                            minibuffer-auto-extra-map))))
@@ -688,11 +711,11 @@ Default value of SEPARATOR is space."
   :lighter " crm-auto"
   :group 'minibuffer
   :global t
-  (if minibuffer-auto-crm-mode
-      (advice-add 'completing-read-multiple :around
-                  #'minibuffer-auto-crm-completing-read-multiple)
-    (advice-remove 'completing-read-multiple
-                   #'minibuffer-auto-crm-completing-read-multiple)))
+  (advice-remove 'completing-read-multiple
+                 #'minibuffer-auto-crm-completing-read-multiple)
+  (when minibuffer-auto-crm-mode
+    (advice-add 'completing-read-multiple :around
+                #'minibuffer-auto-crm-completing-read-multiple)))
 
 ;;;###autoload
 (define-minor-mode minibuffer-auto-mode
@@ -710,13 +733,13 @@ Default value of SEPARATOR is space."
   :lighter " mini-auto"
   :group 'minibuffer
   :global t
-  (remove-hook 'minibuffer-setup-hook 'minibuffer-auto-setup-preview)
+  (remove-hook 'minibuffer-setup-hook #'minibuffer-auto-setup-preview)
   (remove-hook 'icomplete-minibuffer-setup-hook
                #'minibuffer-auto--minibuffer-setup-local-map)
   (remove-hook 'icomplete-minibuffer-setup-hook
                #'minibuffer-auto--minibuffer-setup-local-map)
   (when minibuffer-auto-preview-mode
-    (add-hook 'minibuffer-setup-hook 'minibuffer-auto-setup-preview)
+    (add-hook 'minibuffer-setup-hook #'minibuffer-auto-setup-preview)
     (add-hook 'minibuffer-exit-hook #'minibuffer-auto-cleanup-hook)))
 
 (provide 'minibuffer-auto)
