@@ -6,7 +6,7 @@
 ;; URL: https://github.com/KarimAziev/minibuffer-auto
 ;; Version: 0.1.0
 ;; Keywords: tools
-;; Package-Requires: ((emacs "28.1"))
+;; Package-Requires: ((emacs "29.1"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
 ;; This file is NOT part of GNU Emacs.
