@@ -26,20 +26,60 @@
 
 ;;; Commentary:
 
-;; Enhancer for default minibuffer completions
+;; `minibuffer-auto' designed to enhance the experience of
+;; using the minibuffer for completions.
+
+;; It provides automatic execution of commands, preview of completion
+;; candidates, and intuitive scrolling through completion lists.
+
+;; Users can effortlessly navigate directories, jump to definitions in other
+;; windows, and use additional, convenient minibuffer actions with provided key
+;; bindings.
+
+;; Sensible defaults make it easy to integrate with existing configurations, and
+;; the package requires no additional setup for basic functionalities,
+;; maintaining ease of use as a core philosophy.
+
+;; Minor Modes available in this package:
+
+;; - `minibuffer-auto-mode': Activates automatic completion features in the
+;;   minibuffer. This mode sets up hooks to aid completion as you type, aiming
+;;   to minimize the need for explicit user action and to provide a smoother
+;;   completion experience.
+
+;; - `minibuffer-auto-crm-mode': Optimizes the `completing-read-multiple`
+;;   function with automatic completion triggers. This mode is specifically
+;;   helpful when dealing with multiple selections in the minibuffer, allowing
+;;   for quicker and more efficient inputs.
+
+;; - `minibuffer-auto-preview-mode': Enables real-time previews of minibuffer
+;;   completion candidates. As users type or navigate through the candidates,
+;;   this mode updates the preview to reflect the current selection without
+;;   the need to explicitly confirm it, facilitating a more dynamic and
+;;   responsive interaction.
+;;
+;; All modes come with customizable key bindings and are designed to respect
+;; user preferences, integrating seamlessly into the existing Emacs workflow.
 
 ;;; Code:
 
 (require 'minibuffer)
 (require 'crm)
 
-(defvar minibuffer-auto-command nil)
-(defvar minibuffer-auto-default-action nil)
+(defvar minibuffer-auto-command nil
+  "Automatically executed command in minibuffer.")
 
-(defvar minibuffer-auto-preview-buffer-name "*minibuffer-auto-preview*")
+(defvar minibuffer-auto-default-action nil
+  "Determines if default action is automatically executed in minibuffers.")
+
+(defvar minibuffer-auto-preview-buffer-name "*minibuffer-auto-preview*"
+  "Buffer name for auto-preview in minibuffer operations.")
 
 (defun minibuffer-auto-scroll (direction)
-  "Scroll completions up if DIRECTION is positive integer, or down."
+  "Scroll through minibuffer completions based on DIRECTION.
+
+Argument DIRECTION is an integer that determines the scrolling direction;
+positive values scroll forward, negative values scroll backward."
   (cond ((memq 'ivy--queue-exhibit post-command-hook)
          nil)
         ((and (or (bound-and-true-p fido-mode)
@@ -79,19 +119,19 @@
 
 ;;;###autoload
 (defun minibuffer-auto-scroll-completions-up ()
-  "Scroll completions window up without selection."
+  "Scroll completions upward."
   (interactive)
   (minibuffer-auto-scroll 1))
 
 ;;;###autoload
 (defun minibuffer-auto-scroll-completions-down ()
-  "Scroll completions window up without selection."
+  "Scroll completions up in minibuffer."
   (interactive)
   (minibuffer-auto-scroll -1))
 
 ;;;###autoload
 (defun minibuffer-auto-beg-of-buffer ()
-  "Scroll completions window down without selection."
+  "Jump to the first completion in the minibuffer."
   (interactive)
   (when-let ((wind (get-buffer-window "*Completions*" 0)))
     (with-selected-window wind
@@ -102,17 +142,18 @@
 
 ;;;###autoload
 (defun minibuffer-auto-end-of-buffer ()
-  "Scroll completions window down without selection."
+  "Move to the end of the completions buffer."
   (interactive)
   (when-let ((wind (get-buffer-window "*Completions*" 0)))
     (with-selected-window wind
       (goto-char (point-max)))
     (minibuffer-next-completion -1)))
 
-(defvar minibuffer-auto-timer nil)
+(defvar minibuffer-auto-timer nil
+  "Timer controlling automatic minibuffer actions.")
 
 (defun minibuffer-auto-cleanup-hook ()
-  "Cancel `minibuffer-auto-timer' and remove minibuffer hooks."
+  "Cancel timer and remove minibuffer hooks."
   (when (timerp minibuffer-auto-timer)
     (cancel-timer minibuffer-auto-timer)
     (setq minibuffer-auto-timer nil))
@@ -125,7 +166,7 @@
   (remove-hook 'minibuffer-exit-hook #'minibuffer-auto-cleanup-hook))
 
 (defun minibuffer-auto-complete ()
-  "Display a list of possible completions of the current minibuffer contents."
+  "Trigger completion help in the minibuffer if applicable."
   (when (minibufferp)
     (cond ((memq 'ivy--queue-exhibit post-command-hook)
            nil)
@@ -137,15 +178,16 @@
            (minibuffer-completion-help)))))
 
 (defun minibuffer-auto-force-complete ()
-  "Display a list of possible completions of the current minibuffer contents."
+  "Display completion help in active minibuffer."
   (when (minibuffer-window-active-p (selected-window))
     (minibuffer-completion-help)))
 
-(defvar minibuffer-auto-def nil)
+(defvar minibuffer-auto-def nil
+  "Determines automatic definition of minibuffer content.")
 
 ;;;###autoload
 (defun minibuffer-auto-up-to-git-or-home-dir ()
-  "Go to the parent directory until .git or home directory reached."
+  "Navigate up to git or home directory in minibuffer."
   (interactive)
   (when (minibuffer-window-active-p (selected-window))
     (let ((dir (buffer-substring-no-properties (minibuffer-prompt-end)
@@ -169,21 +211,22 @@
 
 ;;;###autoload
 (defun minibuffer-auto-directory-up ()
-  "Go to the parent directory preselecting the current one."
+  "Navigate up a directory in the minibuffer."
   (interactive)
   (when (minibuffer-window-active-p (selected-window))
     (if-let ((beg (save-excursion
                     (cond ((looking-back "~/" 0)
                            (1- (point)))
-                          (t (when (re-search-backward "/" nil t
-                                                       (if
-                                                           (looking-back "/" 0)
-                                                           2
-                                                         1))
-                               (when (file-directory-p (buffer-substring-no-properties
-                                                        (minibuffer-prompt-end)
-                                                        (point)))
-                                 (1+ (point)))))))))
+                          (t
+                           (when (re-search-backward "/" nil t
+                                                     (if
+                                                         (looking-back "/" 0)
+                                                         2
+                                                       1))
+                             (when (file-directory-p (buffer-substring-no-properties
+                                                      (minibuffer-prompt-end)
+                                                      (point)))
+                               (1+ (point)))))))))
         (progn (delete-region beg
                               (point))
                (when (looking-back "~" 0)
@@ -195,7 +238,7 @@
                      (line-end-position)))))
 
 (defun minibuffer-auto-post-command-hook (&rest _)
-  "Invoke `minibuffer-auto-complete' with timer."
+  "Set up delayed auto-completion in the minibuffer."
   (setq minibuffer-auto-def (when minibuffer-default
                               (seq-copy minibuffer-default)))
   (when (timerp minibuffer-auto-timer)
@@ -211,7 +254,7 @@
                           #'minibuffer-auto-complete))))
 
 (defun minibuffer-auto-setup-hook ()
-  "Setup minibuffer completions."
+  "Set up auto-completion in the active minibuffer."
   (when (active-minibuffer-window)
     (unless (car (overlay-lists))
       (when (minibuffer-window-active-p (selected-window))
@@ -221,13 +264,17 @@
         (minibuffer-auto-complete)))))
 
 (defun minibuffer-auto-crm-complete-maybe ()
-  "Trigger `crm-complete' if previuos char is crm separator."
+  "Complete CRM input if separator is present."
   (when (looking-back crm-separator 0)
     (crm-complete)))
 
 (defun minibuffer-auto-crm-completing-read-multiple (oldfun &rest args)
-  "Apply OLDFUN (`completing-read-multiple') with ARGS with some hooks.
-Triggers complete on the beginning and after inserting `crm-separator'."
+  "Enhance minibuffer reading with auto-completion hooks.
+
+Argument OLDFUN is the original function to be wrapped by
+`minibuffer-auto-crm-completing-read-multiple'.
+
+Remaining arguments ARGS are the arguments to be passed to OLDFUN."
   (minibuffer-with-setup-hook
       (lambda ()
         (when (minibuffer-window-active-p (selected-window))
@@ -238,14 +285,15 @@ Triggers complete on the beginning and after inserting `crm-separator'."
     (apply oldfun args)))
 
 (defvar minibuffer-auto-exit-actions `((file
-                                      find-file-other-window find-file)
-                                     (buffer switch-to-buffer-other-window
-                                             switch-to-buffer)
-                                     (bookmark bookmark-jump-other-window
-                                               bookmark-jump)))
+                                        find-file-other-window find-file)
+                                       (buffer switch-to-buffer-other-window
+                                        switch-to-buffer)
+                                       (bookmark bookmark-jump-other-window
+                                        bookmark-jump))
+  "Actions to run before minibuffer auto-exit.")
 
 (defun minibuffer-auto--metadata ()
-  "Return current minibuffer completion metadata."
+  "Retrieve completion metadata for the minibuffer input."
   (completion-metadata
    (buffer-substring-no-properties
     (minibuffer-prompt-end)
@@ -255,7 +303,7 @@ Triggers complete on the beginning and after inserting `crm-separator'."
    minibuffer-completion-predicate))
 
 (defun minibuffer-auto-ivy-selected-cand ()
-  "Return the currently selected item in Ivy."
+  "Return selected candidate or `ivy-text' with metadata."
   (when (and (memq 'ivy--queue-exhibit post-command-hook)
              (boundp 'ivy-text)
              (boundp 'ivy--length)
@@ -272,7 +320,7 @@ Triggers complete on the beginning and after inserting `crm-separator'."
         ivy-text)))))
 
 (defun minibuffer-auto-default-candidates ()
-  "Return all current completion candidates from the minibuffer."
+  "List default candidates for minibuffer completion."
   (when (minibufferp)
     (let* ((all (completion-all-completions
                  (minibuffer-contents)
@@ -287,14 +335,7 @@ Triggers complete on the beginning and after inserting `crm-separator'."
        all))))
 
 (defun minibuffer-auto-default-top-minibuffer-completion ()
-  "Target the top completion candidate in the minibuffer.
-Return the category metadatum as the type of the target.
-
-This target finder is meant for the default completion UI and
-completion UI highly compatible with it, like Icomplete.
-Many completion UIs can still work with Embark but will need
-their own target finder.  See for example
-`embark--vertico-selected' or `embark--selectrum-selected'."
+  "Move top completion candidate to minibuffer."
   (when (and (minibufferp) minibuffer-completion-table)
     (pcase-let* ((`(,category . ,candidates)
                   (minibuffer-auto-default-candidates))
@@ -314,10 +355,11 @@ their own target finder.  See for example
 
 (defvar minibuffer-auto-targets-finders
   '(minibuffer-auto-ivy-selected-cand
-    minibuffer-auto-default-top-minibuffer-completion))
+    minibuffer-auto-default-top-minibuffer-completion)
+  "List of functions to find minibuffer auto targets.")
 
 (defun minibuffer-auto-get-current-candidate ()
-  "Return cons filename for current completion candidate."
+  "Retrieve the current candidate from the minibuffer."
   (let (target)
     (run-hook-wrapped
      'minibuffer-auto-targets-finders
@@ -337,7 +379,9 @@ their own target finder.  See for example
       target)))
 
 (defun minibuffer-auto-file-preview (current)
-  "Preview CURRENT as file."
+  "Preview file content during minibuffer completion.
+
+Argument CURRENT is a string representing the current file path."
   (when (and
          current
          (file-exists-p current)
@@ -401,14 +445,25 @@ their own target finder.  See for example
             (find-file current)))))))
 
 (defun minibuffer-auto-with-selected-window (action &rest args)
-  "Apply ACTION with ARGS in `minibuffer-selected-window' or in the current."
-      (with-selected-window (minibuffer-selected-window)
-  (if (minibuffer-selected-window)
+  "Execute ACTION in minibuffer's selected window.
+
+Argument ACTION is a function to be called.
+
+Remaining arguments ARGS are passed to ACTION when it is called."
+  (with-selected-window (minibuffer-selected-window)
+    (if (minibuffer-selected-window)
         (apply action args))
     (apply action args)))
 
 (defun minibuffer-auto-jump-to-symbol (other-wind found)
-  "Jump to FOUND cons cell in OTHER-WIND if non-nil."
+  "Jump to symbol in minibuffer with optional window management.
+
+Argument OTHER-WIND is a boolean indicating whether to open the symbol in
+another window.
+
+Argument FOUND is either a string representing a buffer name, a buffer object,
+or a cons cell where the car is a buffer and the cdr is a position in that
+buffer."
   (let ((buff (if (consp found)
                   (car-safe found)
                 found))
@@ -426,8 +481,12 @@ their own target finder.  See for example
          (current-buffer))))))
 
 (defun minibuffer-auto-symbol-action (current other-wind)
-  "Try to find and jump to definiton for CURRENT.
-If OTHER-WIND do it in other window."
+  "Jump to a symbol's definition or file.
+
+Argument CURRENT is a string representing the minibuffer prompt.
+
+Argument OTHER-WIND is a boolean indicating whether to use another window for
+displaying the result."
   (when-let* ((symb (read current))
               (result
                (remove nil (append
@@ -446,13 +505,17 @@ If OTHER-WIND do it in other window."
     (abort-minibuffers)))
 
 (defun minibuffer-auto-symbol-action-other-wind (current)
-  "Try to find and jump to definiton for CURRENT.
-If OTHER-WIND do it in other window."
+  "Jump to symbol in another window.
+
+Argument CURRENT is a cons cell where the car is the buffer name as a string and
+the cdr is the position as an integer."
   (minibuffer-auto-jump-to-symbol t current))
 
 (defun minibuffer-auto-find-and-exit (&optional other-wind)
-  "Try to find symbol or file definition and exit minibuffer.
-If OTHER-WIND do it in other window."
+  "Execute action for selected minibuffer candidate.
+
+Optional argument OTHER-WIND is non-nil if the action should be performed in
+another window; it defaults to nil."
   (pcase-let ((`(,category . ,current)
                (minibuffer-auto-get-current-candidate)))
     (if-let* ((action (cdr (assq category minibuffer-auto-exit-actions)))
@@ -465,7 +528,10 @@ If OTHER-WIND do it in other window."
       (minibuffer-auto-symbol-action current other-wind))))
 
 (defun minibuffer-auto-try-find-symbol (current)
-  "Try to find symbol definition for CURRENT minibuffer completion."
+  "Try finding a symbol's definition or file.
+
+Argument CURRENT is a string representing the current contents of the
+minibuffer."
   (when-let* ((symb (read current))
               (result
                (remove nil (append
@@ -481,14 +547,19 @@ If OTHER-WIND do it in other window."
     found))
 
 (defun minibuffer-auto-preview-dwim ()
-  "Scroll completions window up without selection."
+  "Preview actions based on minibuffer input."
   (interactive)
   (pcase-let ((`(,category . ,current)
                (minibuffer-auto-get-current-candidate)))
     (minibuffer-auto-action current category)))
 
 (defun minibuffer-auto-action (current &optional category)
-  "Apply preview action on minibuffer CURRENT completion with CATEGORY."
+  "Execute actions based on minibuffer input.
+
+Argument CURRENT is the current minibuffer content as a string.
+
+Optional argument CATEGORY is a symbol that specifies the type of action to
+perform."
   (when (and
          (not category)
          current
@@ -548,30 +619,29 @@ If OTHER-WIND do it in other window."
 
 ;;;###autoload
 (defun minibuffer-auto-find-dwim-other-window ()
-  "Try to find file or symbol definition and exit minibuffer."
+  "Open definition of symbol or file in another window."
   (interactive)
   (minibuffer-auto-find-and-exit t))
 
 ;;;###autoload
 (defun minibuffer-auto-find-dwim ()
-  "Try to find file or symbol definition and exit minibuffer."
+  "Find symbol or file and exit minibuffer."
   (interactive)
   (minibuffer-auto-find-and-exit nil))
 
 (defun minibuffer-auto-fido-mode-p ()
-  "Return non nil if fido related modes enabled."
+  "Check if any fido or icomplete modes are active."
   (or (bound-and-true-p fido-mode)
       (bound-and-true-p icomplete-mode)
       (bound-and-true-p fido-vertical-mode)))
 
-
-
-
 (defun minibuffer-auto-insert-action (item &optional separator)
-  "Insert or complete ITEM and SEPARATOR.
-If word at point is prefix of ITEM, complete it, else insert ITEM.
-Optional argument SEPARATOR is a string to insert just after ITEM.
-Default value of SEPARATOR is space."
+  "Insert ITEM into minibuffer, optionally with SEPARATOR.
+
+Argument ITEM is the string to be inserted into the minibuffer.
+
+Optional argument SEPARATOR is the string used to separate ITEM from the
+existing content; it defaults to a newline character (\"\n\")."
   (let ((parts))
     (setq parts
           (if-let ((current-word
@@ -600,7 +670,10 @@ Default value of SEPARATOR is space."
     (apply #'insert parts)))
 
 (defun minibuffer-auto-insert-exit-with-action (action)
-  "Call ACTION with current candidate and exit minibuffer."
+  "Execute ACTION with current minibuffer candidate after delay.
+
+Argument ACTION is a function to be called with the current minibuffer candidate
+as its argument."
   (pcase-let ((`(,_category . ,current)
                (minibuffer-auto-get-current-candidate)))
     (progn (run-with-timer 0.1 nil action current)
@@ -608,7 +681,7 @@ Default value of SEPARATOR is space."
 
 ;;;###autoload
 (defun minibuffer-auto-copy-current ()
-  "Copy current minibuffer candidate without exiting minibuffer."
+  "Copy current minibuffer candidate to clipboard."
   (interactive)
   (pcase-let ((`(,_category . ,current)
                (minibuffer-auto-get-current-candidate)))
@@ -616,10 +689,9 @@ Default value of SEPARATOR is space."
       (kill-new current)
       (message "Copied %s" current))))
 
-
 ;;;###autoload
 (defun minibuffer-auto-insert ()
-  "Call ACTION with current candidate and exit minibuffer."
+  "Insert or complete text in the minibuffer."
   (interactive)
   (minibuffer-auto-insert-exit-with-action #'minibuffer-auto-insert-action))
 
@@ -634,11 +706,13 @@ Default value of SEPARATOR is space."
     (define-key map (kbd "C-M-l") #'minibuffer-auto-up-to-git-or-home-dir)
     (define-key map (kbd "C-c C-i") #'minibuffer-auto-insert)
     (define-key map (kbd "M-w") #'minibuffer-auto-copy-current)
-    map))
+    map)
+  "Keymap for extra minibuffer completion commands.")
 
 (defvar-local minibuffer-auto-last-input nil)
+
 (defun minibuffer-auto-pre-command-preview-hook ()
-  "Try to find file or symbol definition and exit minibuffer."
+  "Navigate up if file exists and isn't a directory."
   (remove-hook 'pre-command-hook #'minibuffer-auto-pre-command-preview-hook
                t)
   (when (memq this-command '(icomplete-forward-completions
@@ -649,20 +723,23 @@ Default value of SEPARATOR is space."
         (minibuffer-auto-directory-up)))))
 
 (defun minibuffer-auto-remove-preview-buffer ()
-  "Remove buffer `minibuffer-auto-preview-buffer-name'."
+  "Delete the minibuffer auto-preview buffer if it exists."
   (when (buffer-live-p (get-buffer minibuffer-auto-preview-buffer-name))
     (kill-buffer (get-buffer minibuffer-auto-preview-buffer-name))))
 
 (defun minibuffer-auto--minibuffer-setup-local-map ()
-  "Hook function for `icomplete-minibuffer-setup-hook'."
+  "Set up a composed keymap for the minibuffer."
   (use-local-map
    (make-composed-keymap (current-local-map)
                          minibuffer-auto-extra-map)))
 
 (defvar-local minibuffer-auto-preview-candidate nil)
-(defvar minibuffer-auto-preview-timer nil)
+
+(defvar minibuffer-auto-preview-timer nil
+  "Timer for automatic preview in minibuffer.")
+
 (defun minibuffer-auto-do-preview ()
-  "Try to preview current minibuffer candidate."
+  "Preview files or symbols in minibuffer completion."
   (when (minibufferp)
     (let ((cand (minibuffer-auto-get-current-candidate))
           (curr minibuffer-auto-preview-candidate))
@@ -677,7 +754,7 @@ Default value of SEPARATOR is space."
           (minibuffer-auto-action current (car cand)))))))
 
 (defun minibuffer-auto-schedule-preview ()
-  "Run preview command after timeout."
+  "Schedule preview of minibuffer input after delay."
   (setq minibuffer-auto-last-input
         (buffer-substring-no-properties
          (minibuffer-prompt-end)
@@ -689,7 +766,7 @@ Default value of SEPARATOR is space."
                         #'minibuffer-auto-do-preview)))
 
 (defun minibuffer-auto-setup-preview ()
-  "Setup auto preview."
+  "Set up minibuffer for auto preview with hooks and keymaps."
   (when (minibufferp)
     (setq minibuffer-auto-command this-command)
     (setq minibuffer-auto-default-action (key-binding (kbd "C-j") nil t))
@@ -707,7 +784,10 @@ Default value of SEPARATOR is space."
 
 ;;;###autoload
 (define-minor-mode minibuffer-auto-crm-mode
-  "Autotrigger minibuffer completions for `completing-read-multiple'."
+  "Automate completion for `completing-read-multiple'.
+
+Automatically trigger completion in `completing-read-multiple' after inserting a
+separator or when starting input."
   :lighter " crm-auto"
   :group 'minibuffer
   :global t
@@ -719,7 +799,12 @@ Default value of SEPARATOR is space."
 
 ;;;###autoload
 (define-minor-mode minibuffer-auto-mode
-  "Autoexpand minibuffer completions."
+  "Automate completions in the minibuffer.
+
+Automatically enable completion in the MINIBUFFER and set up necessary hooks for
+its operation. When activated, it adds hooks to enhance the MINIBUFFER with
+automatic completion features. Upon exiting the MINIBUFFER, it cleans up by
+removing these hooks to ensure no residual effects remain."
   :lighter " mini-auto"
   :group 'minibuffer
   :global t
@@ -729,7 +814,11 @@ Default value of SEPARATOR is space."
 
 ;;;###autoload
 (define-minor-mode minibuffer-auto-preview-mode
-  "Enhance minibuffer map with preview commands."
+  "Toggle automatic preview in minibuffer.
+
+Automatically preview MINIBUFFER completion candidates as you type, without
+needing to explicitly select them. This mode sets up necessary hooks to update
+the preview in real-time and cleans up after exiting the minibuffer."
   :lighter " mini-auto"
   :group 'minibuffer
   :global t
