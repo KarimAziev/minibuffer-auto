@@ -1,10 +1,11 @@
-* minibuffer-auto
+* About
 
-Enhancer For Default Minibuffer Completions.
+Enhances the default minibuffer completion experience in Emacs. It provides functionalities such as automatic command execution, inline previews of completion candidates, and easy navigation through minibuffer completion lists.
 
-** Installation
-
-Emacs >= 25.1 is required.
+* minibuffer-auto                                                  :TOC_4_gh:
+- [[#about][About]]
+    - [[#manual][Manual]]
+  - [[#usage][Usage]]
 
 *** Manual
 
@@ -36,21 +37,10 @@ Add the downloaded directory to the load path:
               ("M-<" . minibuffer-auto-beg-of-buffer)))
 #+end_src
 
-** Minor mode
+** Usage
 
--  ~minibuffer-auto-preview-mode~
-Enhance minibuffer map with preview commands.
--  ~minibuffer-auto-mode~
-Autoexpand minibuffer completions.
--  ~minibuffer-auto-crm-mode~
-Autotrigger minibuffer completions for =completing-read-multiple=.
-** Commands
+- =minibuffer-auto-mode=: Activates automatic completion features in the minibuffer. This mode sets up hooks to aid completion as you type, aiming to minimize the need for explicit user action and to provide a smoother completion experience.
 
-*** ~minibuffer-auto-end-of-buffer~
-Scroll completions window down without selection.
-*** ~minibuffer-auto-beg-of-buffer~
-Scroll completions window down without selection.
-*** ~minibuffer-auto-scroll-completions-down~
-Scroll completions window up without selection.
-*** ~minibuffer-auto-scroll-completions-up~
-Scroll completions window up without selection.
+- =minibuffer-auto-crm-mode=: Optimizes the =completing-read-multiple= function with automatic completion triggers. This mode is specifically helpful when dealing with multiple selections in the minibuffer, allowing for quicker and more efficient inputs.
+
+- =minibuffer-auto-preview-mode=: Enables real-time previews of minibuffer completion candidates. As users type or navigate through the candidates, this mode updates the preview to reflect the current selection without the need to explicitly confirm it, facilitating a more dynamic and responsive interaction.
