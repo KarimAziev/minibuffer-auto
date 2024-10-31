@@ -243,15 +243,9 @@ positive values scroll forward, negative values scroll backward."
                               (seq-copy minibuffer-default)))
   (when (timerp minibuffer-auto-timer)
     (cancel-timer minibuffer-auto-timer))
-  (when (memq this-command
-              '(self-insert-command
-                delete-backward-char
-                kill-region
-                delete-minibuffer-contents
-                backward-kill-word))
-    (setq minibuffer-auto-timer
-          (run-with-timer 0.5 nil
-                          #'minibuffer-auto-complete))))
+  (setq minibuffer-auto-timer
+        (run-with-timer 0.5 nil
+                        #'minibuffer-auto-complete)))
 
 (defun minibuffer-auto-setup-hook ()
   "Set up auto-completion in the active minibuffer."
@@ -562,60 +556,63 @@ Optional argument CATEGORY is a symbol that specifies the type of action to
 perform."
   (when (and
          (not category)
+         (stringp current)
          current
          (file-name-absolute-p current)
          (file-exists-p current))
     (setq category 'file))
-  (when (stringp current)
-    (pcase category
-      ('imenu (with-minibuffer-selected-window
-                (let ((pos (point)))
-                  (imenu current)
-                  (unwind-protect
-                      (read-key-sequence "")
-                    (setq unread-command-events
-                          (append (this-single-command-raw-keys)
-                                  unread-command-events))
-                    (goto-char pos)))))
-      ('file
-       (minibuffer-auto-file-preview current))
-      ('variable
-       (with-minibuffer-selected-window
-         (let ((inhibit-message t))
-           (describe-variable (intern-soft
-                               current)))))
-      ('library
-       (minibuffer-auto-with-selected-window
-        'find-library
-        current))
-      ('minor-mode (with-minibuffer-selected-window
-                     (describe-symbol
-                      (intern-soft
-                       current))))
-      ('bookmark (minibuffer-auto-with-selected-window
-                  'bookmark-jump
-                  current))
-      ('buffer
-       (when (buffer-live-p (get-buffer current))
-         (minibuffer-auto-with-selected-window
-          'display-buffer
-          (get-buffer current))))
-      ('command
-       (with-minibuffer-selected-window
-         (describe-command
-          (intern-soft
-           current))))
-      (_
-       (or
-        (when-let ((result (minibuffer-auto-try-find-symbol current)))
+  (pcase category
+    ('imenu (with-minibuffer-selected-window
+              (imenu current)
+              (let ((pos (point)))
+                (imenu current)
+                (unwind-protect
+                    (read-key-sequence "")
+                  (setq unread-command-events
+                        (append (this-single-command-raw-keys)
+                                unread-command-events))
+                  (goto-char pos)))))
+    ((guard (stringp current))
+     (pcase category
+       ('file
+        (minibuffer-auto-file-preview current))
+       ('variable
+        (with-minibuffer-selected-window
+          (let ((inhibit-message t))
+            (describe-variable (intern-soft
+                                current)))))
+       ('library
+        (minibuffer-auto-with-selected-window
+         'find-library
+         current))
+       ('minor-mode (with-minibuffer-selected-window
+                      (describe-symbol
+                       (intern-soft
+                        current))))
+       ('bookmark (minibuffer-auto-with-selected-window
+                   'bookmark-jump
+                   current))
+       ('buffer
+        (when (buffer-live-p (get-buffer current))
           (minibuffer-auto-with-selected-window
-           'minibuffer-auto-jump-to-symbol
-           nil
-           result)
-          t)
-        (when (functionp minibuffer-auto-default-action)
-          (funcall minibuffer-auto-default-action)
-          t))))))
+           'display-buffer
+           (get-buffer current))))
+       ('command
+        (with-minibuffer-selected-window
+          (describe-command
+           (intern-soft
+            current))))
+       (_
+        (or
+         (when-let ((result (minibuffer-auto-try-find-symbol current)))
+           (minibuffer-auto-with-selected-window
+            'minibuffer-auto-jump-to-symbol
+            nil
+            result)
+           t)
+         (when (functionp minibuffer-auto-default-action)
+           (funcall minibuffer-auto-default-action)
+           t)))))))
 
 ;;;###autoload
 (defun minibuffer-auto-find-dwim-other-window ()
@@ -746,14 +743,15 @@ as its argument."
       (when (not (equal cand curr))
         (setq minibuffer-auto-preview-candidate cand)
         (when-let ((current (cdr cand)))
-          (when (and (file-exists-p current)
+          (when (and (stringp current)
+                     (file-exists-p current)
                      (not (file-directory-p current)))
             (when (minibuffer-auto-fido-mode-p)
               (add-hook 'pre-command-hook
                         #'minibuffer-auto-pre-command-preview-hook nil t)))
           (minibuffer-auto-action current (car cand)))))))
 
-(defun minibuffer-auto-schedule-preview ()
+(defun minibuffer-auto-schedule-preview (&rest _)
   "Schedule preview of minibuffer input after delay."
   (setq minibuffer-auto-last-input
         (buffer-substring-no-properties
@@ -777,10 +775,23 @@ as its argument."
     (when (bound-and-true-p icomplete-vertical-mode)
       (add-hook 'icomplete--vertical-minibuffer-setup
                 #'minibuffer-auto--minibuffer-setup-local-map))
-    (add-hook 'pre-command-hook #'minibuffer-auto-schedule-preview nil t)
+    (add-hook 'after-change-functions #'minibuffer-auto-schedule-preview nil t)
     (use-local-map
      (make-composed-keymap (current-local-map)
                            minibuffer-auto-extra-map))))
+
+(defun minibuffer-auto--backward-delete-word ()
+  "Minibuffer-Auto."
+  (interactive)
+  (when (minibufferp)
+    (when-let ((beg (save-excursion
+                      (if (looking-back "/" 0)
+                          (progn (forward-char -1)
+                                 (1+ (re-search-backward "/" nil t 1)))
+                        (when (re-search-backward "/" nil t 1)
+                          (1+ (point))))))
+               (end (point)))
+      (delete-region beg end))))
 
 ;;;###autoload
 (define-minor-mode minibuffer-auto-crm-mode
