@@ -94,7 +94,7 @@ positive values scroll forward, negative values scroll backward."
                    (icomplete-forward-completions)
                  (icomplete-backward-completions))))))
         (t
-         (if-let ((wind (get-buffer-window "*Completions*" 0)))
+         (if-let* ((wind (get-buffer-window "*Completions*" 0)))
              (with-selected-window wind
                (cond ((and (equal (line-end-position)
                                   (point-max))
@@ -133,7 +133,7 @@ positive values scroll forward, negative values scroll backward."
 (defun minibuffer-auto-beg-of-buffer ()
   "Jump to the first completion in the minibuffer."
   (interactive)
-  (when-let ((wind (get-buffer-window "*Completions*" 0)))
+  (when-let* ((wind (get-buffer-window "*Completions*" 0)))
     (with-selected-window wind
       (goto-char (point-min))
       (minibuffer-next-completion 1)
@@ -144,7 +144,7 @@ positive values scroll forward, negative values scroll backward."
 (defun minibuffer-auto-end-of-buffer ()
   "Move to the end of the completions buffer."
   (interactive)
-  (when-let ((wind (get-buffer-window "*Completions*" 0)))
+  (when-let* ((wind (get-buffer-window "*Completions*" 0)))
     (with-selected-window wind
       (goto-char (point-max)))
     (minibuffer-next-completion -1)))
@@ -214,7 +214,7 @@ positive values scroll forward, negative values scroll backward."
   "Navigate up a directory in the minibuffer."
   (interactive)
   (when (minibuffer-window-active-p (selected-window))
-    (if-let ((beg (save-excursion
+    (if-let* ((beg (save-excursion
                     (cond ((looking-back "~/" 0)
                            (1- (point)))
                           (t
@@ -358,7 +358,7 @@ Remaining arguments ARGS are the arguments to be passed to OLDFUN."
     (run-hook-wrapped
      'minibuffer-auto-targets-finders
      (lambda (fun)
-       (when-let ((result (funcall fun)))
+       (when-let* ((result (funcall fun)))
          (when (and (cdr-safe result)
                     (stringp (cdr-safe result))
                     (not (string-empty-p (cdr-safe result))))
@@ -393,7 +393,7 @@ Argument CURRENT is a string representing the current file path."
                nil)
               ((and (memq 'ivy--queue-exhibit post-command-hook)
                     (fboundp 'ivy-insert-current))
-               (when-let ((dir (and
+               (when-let* ((dir (and
                                 (boundp 'ivy--length)
                                 (fboundp 'ivy-expand-file-if-directory)
                                 (> ivy--length 0)
@@ -419,7 +419,7 @@ Argument CURRENT is a string representing the current file path."
                        (with-current-buffer (get-buffer-create buffer)
                          (let ((inhibit-read-only t))
                            (erase-buffer)
-                           (if-let ((buff (get-file-buffer current)))
+                           (if-let* ((buff (get-file-buffer current)))
                                (insert (with-current-buffer buff
                                          (buffer-string)))
                              (insert-file-contents current)
@@ -604,7 +604,7 @@ perform."
             current))))
        (_
         (or
-         (when-let ((result (minibuffer-auto-try-find-symbol current)))
+         (when-let* ((result (minibuffer-auto-try-find-symbol current)))
            (minibuffer-auto-with-selected-window
             'minibuffer-auto-jump-to-symbol
             nil
@@ -641,7 +641,7 @@ Optional argument SEPARATOR is the string used to separate ITEM from the
 existing content; it defaults to a newline character (\"\n\")."
   (let ((parts))
     (setq parts
-          (if-let ((current-word
+          (if-let* ((current-word
                     (let* ((end (point))
                            (beg (+ end
                                    (save-excursion
@@ -714,7 +714,7 @@ as its argument."
                t)
   (when (memq this-command '(icomplete-forward-completions
                              icomplete-backward-completions))
-    (when-let ((current (cdr (minibuffer-auto-get-current-candidate))))
+    (when-let* ((current (cdr (minibuffer-auto-get-current-candidate))))
       (when (and (file-exists-p current)
                  (not (file-directory-p current)))
         (minibuffer-auto-directory-up)))))
@@ -742,7 +742,7 @@ as its argument."
           (curr minibuffer-auto-preview-candidate))
       (when (not (equal cand curr))
         (setq minibuffer-auto-preview-candidate cand)
-        (when-let ((current (cdr cand)))
+        (when-let* ((current (cdr cand)))
           (when (and (stringp current)
                      (file-exists-p current)
                      (not (file-directory-p current)))
@@ -784,7 +784,7 @@ as its argument."
   "Minibuffer-Auto."
   (interactive)
   (when (minibufferp)
-    (when-let ((beg (save-excursion
+    (when-let* ((beg (save-excursion
                       (if (looking-back "/" 0)
                           (progn (forward-char -1)
                                  (1+ (re-search-backward "/" nil t 1)))
